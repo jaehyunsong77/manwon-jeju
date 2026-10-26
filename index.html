@@ -391,7 +391,7 @@ footer { padding-block: clamp(64px, 9vw, 112px) calc(36px + env(safe-area-inset-
 
 <nav class="wnav" id="wnav" aria-label="웹진 목차">
   <a class="wm" href="#intro">만원의 제주</a>
-  <span class="wl"><a href="#home"><i>01</i>MAP</a><a href="#why"><i>02</i>WHY</a><a href="#sets"><i>03</i>SET</a><a href="#pick"><i>04</i>PICK</a></span>
+  <span class="wl"><a href="#home"><i>01</i>MAP</a><a href="#sets"><i>02</i>SET</a><a href="#pick"><i>03</i>PICK</a><a href="#why"><i>04</i>WHY</a></span>
 </nav>
 <button class="share" id="share" type="button" aria-label="링크 복사"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></button>
 <div class="toast" id="toast" role="status"></div>
@@ -479,12 +479,47 @@ footer { padding-block: clamp(64px, 9vw, 112px) calc(36px + env(safe-area-inset-
   </div>
 </section>
 
-<!-- 02 why: the question on the landing, answered -->
-<section class="sec gutter" id="why" aria-labelledby="whyTitle">
+<!-- 02 set: rice + coffee within 10,000 won -->
+<section class="sec gutter" id="sets" aria-labelledby="setTitle">
   <div class="wrap">
-    <div class="runhead"><span>02 — WHY</span><span>만원의 제주</span><i aria-hidden="true"></i></div>
+    <div class="runhead"><span>02 — SET</span><span>만원의 제주</span><i aria-hidden="true"></i></div>
     <header class="shead">
       <p class="bignum" aria-hidden="true">02.</p>
+      <div class="stitle"><h2 id="setTitle">밥 + 커피 만원 세트</h2><p>밥집에서 직선 3km 안 · 아메리카노 5,000원 이하</p></div>
+    </header>
+    <div class="ctabs" id="setTabs" role="group" aria-label="지역"><button type="button" data-city="제주시" class="on" aria-pressed="true">제주시<i></i></button><button type="button" data-city="서귀포시" aria-pressed="false">서귀포시<i></i></button></div>
+    <ol class="srows" id="setList"></ol>
+  </div>
+</section>
+
+<!-- 03 pick: travellers introduce their own hidden 10,000-won places -->
+<section class="sec gutter" id="pick" aria-labelledby="pickTitle">
+  <div class="wrap">
+    <div class="runhead"><span>03 — PICK</span><span>만원의 제주</span><i aria-hidden="true"></i></div>
+    <header class="shead">
+      <p class="bignum" aria-hidden="true">03.</p>
+      <div class="stitle"><h2 id="pickTitle">만원 숨맛소</h2><p class="ssub">숨겨진 맛집을 소개합니다.</p><p>나만 알던 1만 원 이하 밥집, 사진 한 장과 리뷰로 알려 주세요</p></div>
+    </header>
+    <div class="pgrid">
+      <form class="pform" id="pickForm" novalidate>
+        <label class="pf"><span>식당 이름</span><input name="n" required maxlength="40" placeholder="예: 골목 끝 국숫집" autocomplete="off"></label>
+        <label class="pf"><span>지역</span><select name="z"></select></label>
+        <label class="pf"><span>리뷰</span><textarea name="r" required maxlength="200" rows="4" placeholder="무엇을 먹었고, 얼마였고, 왜 좋았는지 짧게 적어 주세요"></textarea><em class="cnt" id="pickCount">0 / 200</em></label>
+        <div class="pf"><span>사진</span><label class="pphoto"><input type="file" name="img" accept="image/*"><b id="pickPhotoLabel">사진 고르기</b></label><img class="pprev" id="pickPrev" alt="고른 사진 미리 보기" hidden></div>
+        <button type="submit" class="act k psend">숨맛소 등록하기</button>
+        <p class="pnote" id="pickNote"></p>
+      </form>
+      <div class="pfeed"><div class="lhead"><span id="pickCountAll"></span></div><ul class="pcards" id="pickList" aria-live="polite"></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 why: what 만원의 제주 is, as the closing note -->
+<section class="sec gutter" id="why" aria-labelledby="whyTitle">
+  <div class="wrap">
+    <div class="runhead"><span>04 — WHY</span><span>만원의 제주</span><i aria-hidden="true"></i></div>
+    <header class="shead">
+      <p class="bignum" aria-hidden="true">04.</p>
       <div class="stitle"><h2 id="whyTitle">What is 만원의 제주?</h2></div>
     </header>
     <div class="answer">
@@ -499,41 +534,6 @@ footer { padding-block: clamp(64px, 9vw, 112px) calc(36px + env(safe-area-inset-
       <div><b class="red" data-n="rest">184</b><span>1만 원 이하 밥집</span></div>
       <div><b data-n="cafe">43</b><span>아메리카노 5천 원 이하 카페</span></div>
       <div><b data-n="sets">18</b><span>밥 + 커피 만원 세트</span></div>
-    </div>
-  </div>
-</section>
-
-<!-- 03 set: rice + coffee within 10,000 won -->
-<section class="sec gutter" id="sets" aria-labelledby="setTitle">
-  <div class="wrap">
-    <div class="runhead"><span>03 — SET</span><span>만원의 제주</span><i aria-hidden="true"></i></div>
-    <header class="shead">
-      <p class="bignum" aria-hidden="true">03.</p>
-      <div class="stitle"><h2 id="setTitle">밥 + 커피 만원 세트</h2><p>밥집에서 직선 3km 안 · 아메리카노 5,000원 이하</p></div>
-    </header>
-    <div class="ctabs" id="setTabs" role="group" aria-label="지역"><button type="button" data-city="제주시" class="on" aria-pressed="true">제주시<i></i></button><button type="button" data-city="서귀포시" aria-pressed="false">서귀포시<i></i></button></div>
-    <ol class="srows" id="setList"></ol>
-  </div>
-</section>
-
-<!-- 04 pick: travellers introduce their own hidden 10,000-won places -->
-<section class="sec gutter" id="pick" aria-labelledby="pickTitle">
-  <div class="wrap">
-    <div class="runhead"><span>04 — PICK</span><span>만원의 제주</span><i aria-hidden="true"></i></div>
-    <header class="shead">
-      <p class="bignum" aria-hidden="true">04.</p>
-      <div class="stitle"><h2 id="pickTitle">만원 숨맛소</h2><p class="ssub">숨겨진 맛집을 소개합니다.</p><p>나만 알던 1만 원 이하 밥집, 사진 한 장과 리뷰로 알려 주세요</p></div>
-    </header>
-    <div class="pgrid">
-      <form class="pform" id="pickForm" novalidate>
-        <label class="pf"><span>식당 이름</span><input name="n" required maxlength="40" placeholder="예: 골목 끝 국숫집" autocomplete="off"></label>
-        <label class="pf"><span>지역</span><select name="z"></select></label>
-        <label class="pf"><span>리뷰</span><textarea name="r" required maxlength="200" rows="4" placeholder="무엇을 먹었고, 얼마였고, 왜 좋았는지 짧게 적어 주세요"></textarea><em class="cnt" id="pickCount">0 / 200</em></label>
-        <div class="pf"><span>사진</span><label class="pphoto"><input type="file" name="img" accept="image/*"><b id="pickPhotoLabel">사진 고르기</b></label><img class="pprev" id="pickPrev" alt="고른 사진 미리 보기" hidden></div>
-        <button type="submit" class="act k psend">숨맛소 등록하기</button>
-        <p class="pnote" id="pickNote"></p>
-      </form>
-      <div class="pfeed"><div class="lhead"><span id="pickCountAll"></span></div><ul class="pcards" id="pickList" aria-live="polite"></ul></div>
     </div>
   </div>
 </section>
@@ -604,7 +604,7 @@ document.documentElement.style.setProperty('--grain',`url("data:image/svg+xml,${
 /* landing fade, top bar, current-section mark */
 (function(){
   const intro=document.getElementById('intro'),nav=document.getElementById('wnav');
-  const secs=['home','why','sets','pick'].map(id=>document.getElementById(id));
+  const secs=['home','sets','pick','why'].map(id=>document.getElementById(id));
   const links=[...nav.querySelectorAll('.wl a')];
   let ticking=false;
   const upd=()=>{ticking=false;
