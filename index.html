@@ -369,6 +369,10 @@ footer { padding-block: clamp(64px, 9vw, 112px) calc(36px + env(safe-area-inset-
 .psend { width: 100%; min-height: 48px; font-size: 15px; }
 .psend:disabled { opacity: .6; cursor: wait; }
 .more[hidden] { display: none; }
+.pcancel { width: 100%; min-height: 44px; margin-top: -8px; }
+.pdrop { justify-self: end; border: 0; background: none; padding: 0; font: 600 12px/1.4 var(--sans); color: var(--red); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.pcancel[hidden], .pdrop[hidden] { display: none; }
+.pcard.on { border-color: var(--red); }
 .pgo { font-size: 13.5px; line-height: 1.7; color: var(--ink-2); }
 .pnote { font-size: 12px; line-height: 1.6; color: var(--ink-3); }
 .pcards { list-style: none; margin: 0; padding: 16px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 18px; }
@@ -510,8 +514,9 @@ footer { padding-block: clamp(64px, 9vw, 112px) calc(36px + env(safe-area-inset-
         <label class="pf"><span>식당 이름</span><input name="n" required maxlength="40" placeholder="예: 골목 끝 국숫집" autocomplete="off"></label>
         <label class="pf"><span>지역</span><select name="z"></select></label>
         <label class="pf"><span>리뷰</span><textarea name="r" required maxlength="200" rows="4" placeholder="무엇을 먹었고, 얼마였고, 왜 좋았는지 짧게 적어 주세요"></textarea><em class="cnt" id="pickCount">0 / 200</em></label>
-        <div class="pf"><span>사진</span><label class="pphoto"><input type="file" name="img" accept="image/*"><b id="pickPhotoLabel">사진 고르기</b></label><img class="pprev" id="pickPrev" alt="고른 사진 미리 보기" hidden></div>
+        <div class="pf"><span>사진</span><label class="pphoto"><input type="file" name="img" accept="image/*"><b id="pickPhotoLabel">사진 고르기</b></label><img class="pprev" id="pickPrev" alt="고른 사진 미리 보기" hidden><button type="button" class="pdrop" id="pickDrop" hidden>사진 빼기</button></div>
         <button type="submit" class="act k psend">숨맛소 등록하기</button>
+        <button type="button" class="act pcancel" id="pickCancel" hidden>수정 취소</button>
         <p class="pnote" id="pickNote"></p>
       </form>
       <div class="pfeed"><div class="lhead"><span id="pickCountAll"></span></div><ul class="pcards" id="pickList" aria-live="polite"></ul><button type="button" class="more" id="pickMore" hidden>숨맛소 더 보기</button></div>
@@ -919,7 +924,7 @@ const PICK_SITE='https://jaehyunsong77.github.io/manwon-jeju/#pick';
 const inClaude=!!(window.claude&&claude.use)||/\.claudeusercontent\.com$/.test(location.hostname);
 const pickKey=(()=>{const make=()=>[...crypto.getRandomValues(new Uint8Array(24))].map(b=>'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'[b&63]).join('');
   try{let k=localStorage.getItem('mw-pick-key');if(!/^[A-Za-z0-9_-]{20,64}$/.test(k||'')){k=make();localStorage.setItem('mw-pick-key',k)}return k}catch(e){return make()}})();
-let PICKS=[],pickTotal=0,pickMore=false,pickState='load',myKh='';
+let PICKS=[],pickTotal=0,pickMore=false,pickState='load',myKh='',pickEditing=null;
 const zoneName=z=>(ZONES.find(x=>x[0]===z)||[z,z])[1];
 const safeImg=v=>typeof v==='string'&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v)?v:'';
 // the sheet stores only a hash of the key; the same hash here marks which cards are this browser's own
@@ -938,8 +943,8 @@ function renderPicks(){
     list.innerHTML=`<li class="pempty">이 링크에서는 숨맛소를 불러올 수 없어요.<br><a href="${PICK_SITE}" target="_blank" rel="noopener">공개 사이트에서 숨맛소 보기 ↗</a></li>`;return}
   head.innerHTML=pickState==='ok'?(pickTotal?`<b>숨맛소 ${pickTotal}곳</b>`:'아직 등록된 숨맛소가 없어요'):pickState==='err'?'숨맛소를 불러오지 못했어요':'숨맛소를 불러오는 중이에요…';
   list.innerHTML=PICKS.length?PICKS.map(p=>{const img=safeImg(p.img),mine=!!myKh&&p.kh===myKh;
-    return `<li class="pcard">${img?`<img src="${img}" alt="${esc(p.n)} 사진" loading="lazy">`:'<div class="noimg" aria-hidden="true">₩</div>'}<div class="pb"><h3>${esc(p.n)}</h3><span class="pmeta">${esc(zoneName(p.z))}${p.d?' · '+esc(p.d):''}</span><p>${esc(p.r)}</p>
-      <div class="plk"><a href="https://map.kakao.com/link/search/${encodeURIComponent(p.n+' 제주')}" target="_blank" rel="noopener">카카오맵에서 찾기 ↗</a>${mine?`<button type="button" data-pdel="${esc(p.id)}">삭제</button>`:''}</div></div></li>`}).join('')
+    return `<li class="pcard${pickEditing===p.id?' on':''}">${img?`<img src="${img}" alt="${esc(p.n)} 사진" loading="lazy">`:'<div class="noimg" aria-hidden="true">₩</div>'}<div class="pb"><h3>${esc(p.n)}</h3><span class="pmeta">${esc(zoneName(p.z))}${p.d?' · '+esc(p.d):''}${p.e?' · 수정됨':''}</span><p>${esc(p.r)}</p>
+      <div class="plk"><a href="https://map.kakao.com/link/search/${encodeURIComponent(p.n+' 제주')}" target="_blank" rel="noopener">카카오맵에서 찾기 ↗</a>${mine?`<button type="button" data-pedit="${esc(p.id)}">수정</button><button type="button" data-pdel="${esc(p.id)}">삭제</button>`:''}</div></div></li>`}).join('')
     :pickState==='ok'?'<li class="pempty">아직 등록된 숨맛소가 없어요. 첫 번째로 알려 주세요.</li>':pickState==='err'?'<li class="pempty">잠시 뒤 새로고침해 주세요.</li>':'';
   more.hidden=!pickMore;
 }
@@ -957,26 +962,47 @@ function shrinkImage(file){return new Promise((res,rej)=>{const url=URL.createOb
     renderPicks();return;
   }
   f.z.innerHTML=ZONES.slice(1).map(([z,nm,sub])=>`<option value="${z}">${nm} · ${sub}</option>`).join('');
-  note.textContent='등록한 숨맛소는 이 페이지를 보는 모든 사람에게 보여요. 한 사람당 3곳까지 올릴 수 있어요.';
-  let img='';
-  const clearPhoto=()=>{img='';prev.hidden=true;prev.removeAttribute('src');lab.textContent='사진 고르기'};
-  const FAIL={limit:'한 사람당 3곳까지 올릴 수 있어요. 예전 글을 지우고 올려 주세요',busy:'지금 등록이 몰려 있어요. 잠시 뒤 다시 시도해 주세요',img:'사진을 올리지 못했어요. 다른 사진으로 해 주세요'};
+  const NOTE='등록한 숨맛소는 이 페이지를 보는 모든 사람에게 보여요. 한 사람당 3곳까지 올릴 수 있어요.',cancel=document.getElementById('pickCancel'),drop=document.getElementById('pickDrop');
+  note.textContent=NOTE;
+  // img = the photo the form will send; imgTouched says whether an edit changed it (untouched keeps the stored photo)
+  let img='',imgTouched=false;
+  const showPhoto=v=>{img=v;prev.src=v;prev.hidden=false;drop.hidden=false;lab.textContent='다른 사진으로 바꾸기'};
+  const clearPhoto=()=>{img='';prev.hidden=true;prev.removeAttribute('src');drop.hidden=true;lab.textContent='사진 고르기'};
+  const sendLabel=()=>pickEditing?'수정 완료':'숨맛소 등록하기';
+  const FAIL={limit:'한 사람당 3곳까지 올릴 수 있어요. 예전 글을 지우고 올려 주세요',busy:'지금 등록이 몰려 있어요. 잠시 뒤 다시 시도해 주세요',img:'사진을 올리지 못했어요. 다른 사진으로 해 주세요',notfound:'이 숨맛소를 찾지 못했어요. 새로고침해 주세요'};
+  function startEdit(p){
+    pickEditing=p.id;imgTouched=false;
+    f.n.value=p.n;f.z.value=p.z;f.r.value=p.r;cnt.textContent=`${p.r.length} / 200`;
+    const v=safeImg(p.img);if(v)showPhoto(v);else clearPhoto();
+    send.textContent=sendLabel();cancel.hidden=false;note.textContent=`‘${p.n}’ 숨맛소를 고치는 중이에요. 다 고치면 수정 완료를 눌러 주세요.`;
+    renderPicks();f.scrollIntoView({behavior:'smooth',block:'start'});f.n.focus({preventScroll:true});
+  }
+  function stopEdit(){pickEditing=null;imgTouched=false;f.reset();clearPhoto();cnt.textContent='0 / 200';send.textContent=sendLabel();cancel.hidden=true;note.textContent=NOTE;renderPicks()}
   f.r.addEventListener('input',()=>{cnt.textContent=`${f.r.value.length} / 200`});
-  f.img.addEventListener('change',async()=>{const file=f.img.files[0];clearPhoto();if(!file)return;
+  f.img.addEventListener('change',async()=>{const file=f.img.files[0];if(!file)return;
     if(!/^image\//.test(file.type)){toast('사진 파일만 올릴 수 있어요');f.img.value='';return}
-    try{img=await shrinkImage(file);prev.src=img;prev.hidden=false;lab.textContent='다른 사진으로 바꾸기'}catch(e){toast('사진을 읽지 못했어요')}});
+    try{showPhoto(await shrinkImage(file));imgTouched=true}catch(e){toast('사진을 읽지 못했어요')}});
+  drop.addEventListener('click',()=>{clearPhoto();f.img.value='';imgTouched=true});
+  cancel.addEventListener('click',stopEdit);
   f.addEventListener('submit',async e=>{e.preventDefault();if(send.disabled)return;
     const n=f.n.value.trim().slice(0,40),r=f.r.value.trim().slice(0,200);
     if(!n||!r){toast('식당 이름과 리뷰를 적어 주세요');(n?f.r:f.n).focus();return}
-    send.disabled=true;send.textContent='등록하는 중…';
+    const editing=pickEditing;
+    send.disabled=true;send.textContent=editing?'고치는 중…':'등록하는 중…';
     try{
-      const j=await pickPost({a:'add',n,z:f.z.value,r,img});if(!j.ok)throw new Error(j.error||'fail');
-      f.reset();clearPhoto();cnt.textContent='0 / 200';toast('숨맛소를 등록했어요. 고마워요!');await loadPicks();
-    }catch(err){toast(FAIL[err&&err.message]||'등록하지 못했어요. 잠시 뒤 다시 시도해 주세요')}
-    finally{send.disabled=false;send.textContent='숨맛소 등록하기'}
+      const body=editing?{a:'edit',id:editing,n,z:f.z.value,r}:{a:'add',n,z:f.z.value,r,img};
+      if(editing&&imgTouched)body.img=img;
+      const j=await pickPost(body);if(!j.ok)throw new Error(j.error||'fail');
+      toast(editing?'숨맛소를 고쳤어요':'숨맛소를 등록했어요. 고마워요!');
+      if(editing)stopEdit();else{f.reset();clearPhoto();cnt.textContent='0 / 200'}
+      await loadPicks();
+    }catch(err){toast(FAIL[err&&err.message]||(editing?'고치지 못했어요. 잠시 뒤 다시 시도해 주세요':'등록하지 못했어요. 잠시 뒤 다시 시도해 주세요'))}
+    finally{send.disabled=false;send.textContent=sendLabel()}
   });
-  document.getElementById('pickList').addEventListener('click',async e=>{const b=e.target.closest('[data-pdel]');if(!b||!confirm('이 숨맛소를 지울까요?'))return;const id=b.dataset.pdel;
-    try{const j=await pickPost({a:'del',id});if(!j.ok)throw new Error(j.error);PICKS=PICKS.filter(p=>p.id!==id);pickTotal=Math.max(0,pickTotal-1);renderPicks();toast('삭제했어요')}catch(err){toast('삭제하지 못했어요')}});
+  document.getElementById('pickList').addEventListener('click',async e=>{
+    const ed=e.target.closest('[data-pedit]');if(ed){const p=PICKS.find(x=>x.id===ed.dataset.pedit);if(p)startEdit(p);return}
+    const b=e.target.closest('[data-pdel]');if(!b||!confirm('이 숨맛소를 지울까요?'))return;const id=b.dataset.pdel;
+    try{const j=await pickPost({a:'del',id});if(!j.ok)throw new Error(j.error);if(pickEditing===id)stopEdit();PICKS=PICKS.filter(p=>p.id!==id);pickTotal=Math.max(0,pickTotal-1);renderPicks();toast('삭제했어요')}catch(err){toast('삭제하지 못했어요')}});
   document.getElementById('pickMore').addEventListener('click',()=>loadPicks(true));
   renderPicks();pickHash().then(()=>loadPicks());
 })();
