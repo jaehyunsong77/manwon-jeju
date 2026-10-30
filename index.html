@@ -383,9 +383,17 @@ footer { padding-block: clamp(64px, 9vw, 112px) calc(36px + env(safe-area-inset-
 .pcard h3 { margin: 0; font: 700 16px/1.35 var(--sans); overflow-wrap: anywhere; }
 .pcard .pmeta { font-size: 11.5px; color: var(--ink-3); }
 .pcard p { font-size: 13.5px; line-height: 1.65; color: var(--ink-2); overflow-wrap: anywhere; white-space: pre-line; }
-.pcard .plk { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 2px; }
+.pcard .plk { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 2px; }
 .pcard .plk a, .pcard .plk button { border: 0; background: none; padding: 0; font: 600 12px/1.4 var(--sans); color: var(--ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .pcard .plk button { color: var(--red); }
+/* like: a square outlined chip with a heart and the count; filled red once this browser has liked it */
+.pcard .plk .plike { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border: 1px solid var(--rule-2); background: none; font: 600 12.5px/1 var(--sans); color: var(--ink); text-decoration: none; cursor: pointer; }
+.pcard .plk .plike:hover { border-color: var(--ink); }
+.pcard .plk .plike.on { border-color: var(--red); color: var(--red); }
+.pcard .plk .plike.own { cursor: default; color: var(--ink-3); border-color: var(--rule); }
+.plike svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
+.plike.on svg { fill: currentColor; }
+.plike b { font-weight: 600; font-variant-numeric: tabular-nums; }
 .pempty { grid-column: 1 / -1; padding: 40px 0; text-align: center; font-size: 13.5px; color: var(--ink-3); }
 @media (max-width: 900px) { .pgrid { grid-template-columns: minmax(0, 1fr); } .pform { position: static; } }
 /* too short to pin the map above the list (phones held sideways): it scrolls with the page instead */
@@ -931,6 +939,26 @@ const safeImg=v=>typeof v==='string'&&/^data:image\/(jpeg|png|webp);base64,[A-Za
 async function pickHash(){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pickKey));myKh=btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,'-').replace(/\//g,'_').slice(0,22)}catch(e){}}
 // text/plain keeps the request "simple", so the browser sends it straight to Apps Script without a CORS preflight
 const pickPost=b=>fetch(PICK_API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({...b,k:pickKey})}).then(r=>r.json());
+/* likes: the sheet keeps one like per browser key and post and sends the list most-liked first;
+   this browser remembers which posts it liked so the heart shows filled (the sheet's answer wins if they disagree) */
+const PICK_LIKES='mw-pick-likes',HEART='M12 20.5s-7.6-4.6-9.4-9.4C1.4 7.9 3.4 5 6.5 5c2.1 0 3.5 1.2 5.5 3.4C14 6.2 15.4 5 17.5 5c3.1 0 5.1 2.9 3.9 6.1-1.8 4.8-9.4 9.4-9.4 9.4z';
+const myLikes=new Set((()=>{try{return JSON.parse(localStorage.getItem(PICK_LIKES)||'[]')}catch(e){return []}})());
+const saveLikes=()=>{try{localStorage.setItem(PICK_LIKES,JSON.stringify([...myLikes].slice(-500)))}catch(e){}};
+const likeBusy=new Set();
+function likeBtn(p,mine){const on=myLikes.has(p.id),n=p.l||0,svg=`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${HEART}"/></svg>`;
+  return mine?`<span class="plike own" title="내 숨맛소">${svg}<b>${n}</b></span>`
+    :`<button type="button" class="plike${on?' on':''}" data-plike="${esc(p.id)}" aria-pressed="${on}" aria-label="좋아요 ${n}개">${svg}<b>${n}</b></button>`}
+// the card keeps its place when liked (no jumping under the finger); the new order shows on the next load
+async function toggleLike(id){
+  const p=PICKS.find(x=>x.id===id);if(!p||likeBusy.has(id))return;
+  const was={on:myLikes.has(id),l:p.l||0},on=!was.on;
+  const set=(v,n)=>{p.l=Math.max(0,n);if(v)myLikes.add(id);else myLikes.delete(id);saveLikes();
+    const b=document.querySelector(`#pickList [data-plike="${CSS.escape(id)}"]`);if(b)b.outerHTML=likeBtn(p,false)};
+  likeBusy.add(id);set(on,was.l+(on?1:-1));
+  try{const j=await pickPost({a:'like',id,on});if(!j.ok)throw new Error(j.error||'fail');set(j.on,j.n)}
+  catch(err){set(was.on,was.l);toast(err&&err.message==='own'?'내 숨맛소에는 좋아요를 누를 수 없어요':'좋아요를 저장하지 못했어요. 잠시 뒤 다시 눌러 주세요')}
+  finally{likeBusy.delete(id)}
+}
 async function loadPicks(more){
   try{const j=await fetch(`${PICK_API}?skip=${more?PICKS.length:0}`).then(r=>r.json());if(!j.ok)throw new Error('api');
     PICKS=more?PICKS.concat(j.items.filter(x=>!PICKS.some(p=>p.id===x.id))):j.items;pickTotal=j.total;pickMore=j.more;pickState='ok'}
@@ -941,10 +969,10 @@ function renderPicks(){
   const head=document.getElementById('pickCountAll'),list=document.getElementById('pickList'),more=document.getElementById('pickMore');
   if(inClaude){head.innerHTML='<b>숨맛소는 공개 사이트에 모여 있어요</b>';more.hidden=true;
     list.innerHTML=`<li class="pempty">이 링크에서는 숨맛소를 불러올 수 없어요.<br><a href="${PICK_SITE}" target="_blank" rel="noopener">공개 사이트에서 숨맛소 보기 ↗</a></li>`;return}
-  head.innerHTML=pickState==='ok'?(pickTotal?`<b>숨맛소 ${pickTotal}곳</b>`:'아직 등록된 숨맛소가 없어요'):pickState==='err'?'숨맛소를 불러오지 못했어요':'숨맛소를 불러오는 중이에요…';
+  head.innerHTML=pickState==='ok'?(pickTotal?`<b>숨맛소 ${pickTotal}곳</b> · 좋아요 많은 순`:'아직 등록된 숨맛소가 없어요'):pickState==='err'?'숨맛소를 불러오지 못했어요':'숨맛소를 불러오는 중이에요…';
   list.innerHTML=PICKS.length?PICKS.map(p=>{const img=safeImg(p.img),mine=!!myKh&&p.kh===myKh;
     return `<li class="pcard${pickEditing===p.id?' on':''}">${img?`<img src="${img}" alt="${esc(p.n)} 사진" loading="lazy">`:'<div class="noimg" aria-hidden="true">₩</div>'}<div class="pb"><h3>${esc(p.n)}</h3><span class="pmeta">${esc(zoneName(p.z))}${p.d?' · '+esc(p.d):''}${p.e?' · 수정됨':''}</span><p>${esc(p.r)}</p>
-      <div class="plk"><a href="https://map.kakao.com/link/search/${encodeURIComponent(p.n+' 제주')}" target="_blank" rel="noopener">카카오맵에서 찾기 ↗</a>${mine?`<button type="button" data-pedit="${esc(p.id)}">수정</button><button type="button" data-pdel="${esc(p.id)}">삭제</button>`:''}</div></div></li>`}).join('')
+      <div class="plk">${likeBtn(p,mine)}<a href="https://map.kakao.com/link/search/${encodeURIComponent(p.n+' 제주')}" target="_blank" rel="noopener">카카오맵에서 찾기 ↗</a>${mine?`<button type="button" data-pedit="${esc(p.id)}">수정</button><button type="button" data-pdel="${esc(p.id)}">삭제</button>`:''}</div></div></li>`}).join('')
     :pickState==='ok'?'<li class="pempty">아직 등록된 숨맛소가 없어요. 첫 번째로 알려 주세요.</li>':pickState==='err'?'<li class="pempty">잠시 뒤 새로고침해 주세요.</li>':'';
   more.hidden=!pickMore;
 }
@@ -1000,6 +1028,7 @@ function shrinkImage(file){return new Promise((res,rej)=>{const url=URL.createOb
     finally{send.disabled=false;send.textContent=sendLabel()}
   });
   document.getElementById('pickList').addEventListener('click',async e=>{
+    const lk=e.target.closest('[data-plike]');if(lk){toggleLike(lk.dataset.plike);return}
     const ed=e.target.closest('[data-pedit]');if(ed){const p=PICKS.find(x=>x.id===ed.dataset.pedit);if(p)startEdit(p);return}
     const b=e.target.closest('[data-pdel]');if(!b||!confirm('이 숨맛소를 지울까요?'))return;const id=b.dataset.pdel;
     try{const j=await pickPost({a:'del',id});if(!j.ok)throw new Error(j.error);if(pickEditing===id)stopEdit();PICKS=PICKS.filter(p=>p.id!==id);pickTotal=Math.max(0,pickTotal-1);renderPicks();toast('삭제했어요')}catch(err){toast('삭제하지 못했어요')}});
